@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mutual Fund Analyzer - India</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#17232f;--mut:#5d6b78;--line:#dbe2e8;--acc:#0e6b62;--acc2:#e8f3f1;--warn:#b45309;--bad:#b42318;--good:#137a4b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f171e;--card:#17222b;--ink:#e6edf2;--mut:#93a3b1;--line:#2a3945;--acc:#4fc3b5;--acc2:#16302f;--warn:#f0a44b;--bad:#f27b70;--good:#57d18f}}
+:root[data-theme=dark]{--bg:#0f171e;--card:#17222b;--ink:#e6edf2;--mut:#93a3b1;--line:#2a3945;--acc:#4fc3b5;--acc2:#16302f;--warn:#f0a44b;--bad:#f27b70;--good:#57d18f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,Segoe UI,sans-serif}
+h1,h2{font-family:"IBM Plex Serif",Georgia,serif;margin:0}h2{font-size:17px;margin-bottom:8px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+header h1{font-size:19px;flex:1 1 200px}
+button,select,input{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+button{cursor:pointer}button:hover:not(:disabled){border-color:var(--acc)}button:disabled{opacity:.6;cursor:wait}button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+:root[data-theme=dark] button.p,:root[data-theme=dark] .chip.on{color:#0f171e}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{max-width:1200px;margin:0 auto;padding:14px 16px 60px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.chip{border-radius:999px;padding:4px 12px}.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.note{font-size:12px;color:var(--mut)}.banner{border-left:4px solid var(--warn);padding:8px 12px;background:var(--card);border-radius:4px;font-size:13px}.banner.e{border-color:var(--bad)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.kpi b{display:block;font-size:20px}.kpi span{font-size:12px;color:var(--mut)}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--mut);font-weight:500;cursor:pointer}
+tbody tr.c{cursor:pointer}tbody tr.c:hover{background:var(--acc2)}.n{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;border:1px solid var(--line)}.b-e{color:var(--warn);border-color:var(--warn)}
+ul{margin:4px 0;padding-left:18px}li{margin:3px 0}
+#drawer{position:fixed;right:0;top:0;bottom:0;width:min(420px,100%);background:var(--card);border-left:1px solid var(--line);padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));overflow:auto;transform:translateX(100%);transition:transform .2s;z-index:10}
+#drawer.open{transform:none}@media(prefers-reduced-motion:reduce){#drawer{transition:none}}
+.row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}
+.meter{height:8px;background:var(--line);border-radius:4px;position:relative}.meter i{position:absolute;inset:0 auto 0 0;background:var(--acc);border-radius:4px}
+#prog{height:4px;background:var(--line)}#prog i{display:block;height:4px;background:var(--acc);width:0;transition:width .2s}
+#chatlog{max-height:260px;overflow:auto;display:grid;gap:6px;margin-bottom:8px}.m{padding:6px 10px;border-radius:8px;background:var(--acc2);max-width:92%}.m.u{background:var(--bg);justify-self:end;border:1px solid var(--line)}
+input[type=text]{width:100%}
+</style></head><body>
+<header><h1>Mutual Fund Analyzer <span class="note">India · Direct Growth</span></h1>
+<span class="note" id="stamp">Not loaded</span>
+<button class="p" id="refresh" title="Fetch fresh NAV history from MFapi.in and recalculate everything">Refresh data</button>
+<button id="theme" title="Switch light / dark mode">Dark mode</button></header>
+<div id="prog"><i></i></div>
+<main>
+<div id="status"></div>
+<section class="card"><h2>Filters</h2><div class="bar">
+<select id="cat" aria-label="Category" title="Category"></select>
+<input type="text" id="q" placeholder="Search fund or AMC" aria-label="Search" style="max-width:200px">
+<button class="chip" id="fTop" title="Only funds in the top 25% of composite score within their category">Top quartile</button>
+<button class="chip" id="fEm" title="Funds younger than 3 years, which have no Morningstar-style 3Y track record yet">Emerging (&lt;3Y)</button>
+<label class="note" title="How many Direct Growth funds to load per category. Takes effect on Refresh">Funds per category <select id="n"><option>4</option><option selected>6</option><option>10</option></select></label>
+<button id="reset">Reset filters</button></div>
+<p class="note">Source: MFapi.in NAV history (from AMFI data). Every metric is calculated in this page from NAV. Expense ratio, Morningstar ratings, pillars and holdings are not in NAV data, so they are not shown. Risk-free rate assumed at 6.5%. "Category average" is the average of the loaded funds in the same category.</p></section>
+<section class="card"><h2>Executive summary</h2><div class="kpis" id="kpis"></div><div id="summary"></div></section>
+<section class="card"><h2>Recommendations</h2><ul id="recs"></ul></section>
+<div class="grid">
+<section class="card"><h2>Category dispersion</h2><div id="disp"></div><p class="note">3-year return of each fund; the tick marks the category median. Click a dot to open the fund.</p></section>
+<section class="card"><h2>Return vs volatility</h2><div id="scatter"></div><p class="note">3Y annualised return (up) against volatility (right).</p></section></div>
+<section class="card"><h2>Category leaderboard</h2><div class="scroll" id="board"></div></section>
+<section class="card"><h2>Composite scorecard</h2><p class="note">Score 0-100 = 3Y return 30%, Sharpe 25%, downside (drawdown and downside capture) 20%, consistency 15%, alpha 10%. Each part is the fund's percentile within its category.</p><div class="scroll" id="score"></div></section>
+<section class="card"><h2>Head-to-head</h2><div class="bar" id="tray"></div><div id="cmp" class="grid"></div></section>
+<section class="card"><h2>Fund data</h2><div class="scroll" id="tbl"></div><p class="note" id="cnt"></p></section>
+<section class="card"><h2>Ask the data</h2><div id="chatlog"></div><div class="bar"><input type="text" id="ask" placeholder="e.g. best Sharpe in Small Cap, lowest drawdown, emerging funds" style="flex:1 1 220px" aria-label="Question"><button class="p" id="send">Ask</button></div><p class="note">Answers come from the loaded rows. No external model is used.</p></section>
+</main>
+<aside id="drawer" aria-label="Fund details"></aside>
+<script>
+const $=id=>document.getElementById(id),API='https://api.mfapi.in/mf',RF=6.5,rfd=RF/100/252,DAY=864e5,YR=365.25*DAY;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CATS={'Large Cap':{q:'Large Cap',re:/large\s*cap/i},'Large & Mid Cap':{q:'Large & Mid Cap',re:/large\s*(&|and)\s*mid/i},'Mid Cap':{q:'Mid Cap',re:/mid\s*cap/i,ex:/large\s*(&|and)\s*mid/i},'Small Cap':{q:'Small Cap',re:/small\s*cap/i},'Flexi Cap':{q:'Flexi Cap',re:/flexi\s*cap/i},'Multi Cap':{q:'Multi Cap',re:/multi\s*cap/i}};
+const BAD=/idcw|dividend|bonus|regular|etf|index|nifty|sensex|fof|segregated|payout|reinvest|fund of/i;
+const PREF=['SBI','HDFC','ICICI','Nippon','Kotak','Axis','Mirae','Parag','Motilal','UTI','DSP','Aditya','Franklin','Canara','Tata','Bandhan','HSBC','Invesco','Quant','Edelweiss','Sundaram','Baroda'];
+const rank=n=>{const i=PREF.findIndex(p=>n.toLowerCase().includes(p.toLowerCase()));return i<0?99:i};
+let RAW=[],S={cat:'All',q:'',top:false,em:false,sel:null,cmp:[],sort:['score',-1]};
+const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0,f1=(v,s='')=>v===null||v===undefined?'-':v+s;
+const pd=s=>{const[a,b,c]=s.split('-');return Date.UTC(+c,+b-1,+a)};
+async function J(u){const c=new AbortController(),t=setTimeout(()=>c.abort(),25000);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(t)}}
+function status(m,e){$('status').innerHTML=m?`<div class="banner ${e?'e':''}">${m}</div>`:''}
+function prog(a,b){$('prog').firstChild.style.width=(b?100*a/b:0)+'%'}
+function build(j,c){const d=(j.data||[]).map(x=>({t:pd(x.date),v:parseFloat(x.nav)})).filter(x=>x.v>0&&!isNaN(x.t)).sort((a,b)=>a.t-b.t);
+if(d.length<60)return null;const L=d[d.length-1];if(Date.now()-L.t>25*DAY)return{stale:1};
+const at=t=>{let k=d.length-1;while(k>0&&d[k].t>t)k--;return d[k].t<=t?d[k]:null};
+const cg=y=>{const t=L.t-y*YR,p=at(t);if(!p||p.t<t-10*DAY)return null;return +((Math.pow(L.v/p.v,1/y)-1)*100).toFixed(1)};
+const st=L.t-3*YR,rs=[],dr=new Map();for(let i=1;i<d.length;i++)if(d[i].t>=st){const r=d[i].v/d[i-1].v-1;rs.push(r);dr.set(d[i].t,r)}
+const m=mean(rs),sd=Math.sqrt(mean(rs.map(x=>(x-m)**2)))*Math.sqrt(252)*100,dd=Math.sqrt(mean(rs.map(x=>Math.min(x-rfd,0)**2)))*Math.sqrt(252)*100,ann=m*252*100,ok=rs.length>=200;
+let pk=0,mdd=0;d.forEach(x=>{if(x.t>=st){pk=Math.max(pk,x.v);mdd=Math.min(mdd,x.v/pk-1)}});
+const me=new Map();d.forEach(x=>{if(x.t>=st-40*DAY){const D=new Date(x.t);me.set(D.getUTCFullYear()*12+D.getUTCMonth(),x.v)}});
+const ks=[...me.keys()].sort((a,b)=>a-b),mr=new Map();for(let i=1;i<ks.length;i++)mr.set(ks[i],me.get(ks[i])/me.get(ks[i-1])-1);
+return{code:c.schemeCode,name:j.meta.scheme_name.replace(/\s*-\s*Direct.*$/i,'').trim(),amc:j.meta.fund_house||'',cat:c.cat,age:+((L.t-d[0].t)/YR).toFixed(1),nav:L.v,navDate:L.t,ret1:cg(1),ret3:cg(3),ret5:cg(5),sd:+sd.toFixed(1),sharpe:ok?+((ann-RF)/sd).toFixed(2):null,sortino:ok&&dd?+((ann-RF)/dd).toFixed(2):null,mdd:+(mdd*100).toFixed(1),dr,mr}}
+function stage2(){const by={};RAW.forEach(f=>(by[f.cat]=by[f.cat]||[]).push(f));
+Object.values(by).forEach(g=>{const agg=k=>{const s=new Map();g.forEach(f=>f[k].forEach((r,t)=>{const a=s.get(t)||[0,0];a[0]+=r;a[1]++;s.set(t,a)}));const o=new Map();s.forEach((a,t)=>{if(a[1]>=3)o.set(t,a[0]/a[1])});return o};
+const cd=agg('dr'),cm=agg('mr');
+g.forEach(f=>{f.beta=f.alpha=f.dcr=f.cons=null;const xs=[],ys=[];f.dr.forEach((r,t)=>{if(cd.has(t)){xs.push(cd.get(t));ys.push(r)}});
+if(xs.length>150){const mx=mean(xs),my=mean(ys);let cv=0,vx=0;xs.forEach((x,i)=>{cv+=(x-mx)*(ys[i]-my);vx+=(x-mx)**2});const b=cv/vx;f.beta=+b.toFixed(2);f.alpha=+(((my-rfd)-b*(mx-rfd))*252*100).toFixed(1);
+const dn=xs.map((x,i)=>i).filter(i=>xs[i]<0);if(dn.length>20)f.dcr=Math.round(mean(dn.map(i=>ys[i]))/mean(dn.map(i=>xs[i]))*100)}
+let w=0,nn=0;f.mr.forEach((r,k)=>{if(cm.has(k)){nn++;if(r>cm.get(k))w++}});if(nn>=12)f.cons=Math.round(100*w/nn);
+f.catSd=+mean(g.map(x=>x.sd)).toFixed(1);const r3=g.map(x=>x.ret3).filter(x=>x!==null);f.catRet3=r3.length?+mean(r3).toFixed(1):null})});
+const pr=(a,v,hi=true)=>{const x=a.filter(n=>n!==null);if(v===null||x.length<2)return .5;const b=x.filter(n=>hi?n<v:n>v).length,e=x.filter(n=>n===v).length;return(b+e/2)/x.length};
+window.pr=pr;Object.values(by).forEach(g=>{const c=k=>g.map(f=>f[k]);g.forEach(f=>{f.score=Math.round(100*(.3*pr(c('ret3'),f.ret3)+.25*pr(c('sharpe'),f.sharpe)+.2*(pr(c('mdd'),f.mdd)+pr(c('dcr'),f.dcr,false))/2+.15*pr(c('cons'),f.cons)+.1*pr(c('alpha'),f.alpha)))});
+const s=g.map(f=>f.score).sort((a,b)=>a-b),q=s[Math.floor(.75*(s.length-1))];g.forEach(f=>f.topQ=f.score>=q&&g.length>=4)})}
+async function load(){const b=$('refresh');b.disabled=true;b.textContent='Loading...';status('Fetching NAV history from MFapi.in...');prog(0,1);RAW=[];S.sel=null;S.cmp=[];closeF();
+let sf=0,er=0,stale=0;const cands=[],n=+$('n').value;
+await Promise.all(Object.entries(CATS).map(async([c,d])=>{try{const r=await J(API+'/search?q='+encodeURIComponent(d.q));r.filter(x=>d.re.test(x.schemeName)&&!(d.ex&&d.ex.test(x.schemeName))&&/direct/i.test(x.schemeName)&&/growth/i.test(x.schemeName)&&!BAD.test(x.schemeName)).sort((a,b)=>rank(a.schemeName)-rank(b.schemeName)||a.schemeName.localeCompare(b.schemeName)).slice(0,n).forEach(x=>cands.push({...x,cat:c}))}catch(e){sf++}}));
+let i=0,done=0;await Promise.all(Array.from({length:6},async()=>{while(i<cands.length){const c=cands[i++];try{const f=build(await J(API+'/'+c.schemeCode),c);if(f&&f.stale)stale++;else if(f)RAW.push(f)}catch(e){er++}prog(++done,cands.length)}}));
+RAW.forEach((f,k)=>f.id=k);b.disabled=false;b.textContent='Refresh data';prog(0,1);
+if(!RAW.length){status(`Could not load fund data (${sf} search failures, ${er} fetch errors). The browser may be blocking requests to api.mfapi.in (cross-site policy, or this preview page's network limits). Run the file locally or host it on Streamlit / GitHub Pages, then press Refresh.`,1);$('stamp').textContent='No data';init();return}
+stage2();const lt=Math.max(...RAW.map(f=>f.navDate));$('stamp').textContent=`Latest NAV date ${new Date(lt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'})} · fetched ${new Date().toLocaleString('en-IN')}`;
+status(er||sf||stale?`Loaded ${RAW.length} funds. Skipped: ${er} fetch errors, ${sf} failed searches, ${stale} funds with no NAV in 25+ days.`:'');init()}
+function init(){$('cat').innerHTML=['All',...Object.keys(CATS)].map(c=>`<option>${esc(c)}</option>`).join('');S.cat='All';render()}
+function view(){return RAW.filter(f=>(S.cat==='All'||f.cat===S.cat)&&(!S.top||f.topQ)&&(!S.em||f.age<3)&&(!S.q||(f.name+f.amc).toLowerCase().includes(S.q.toLowerCase())))}
+const badge=f=>f.age<3?'<span class="badge b-e" title="Under 3 years old: 3Y and 5Y figures are not available yet">Emerging</span>':'';
+function best(g,k,hi=true){const x=g.filter(f=>f[k]!==null);return x.length?x.reduce((a,b)=>(hi?b[k]>a[k]:b[k]<a[k])?b:a):null}
+function render(){$('fTop').classList.toggle('on',S.top);$('fEm').classList.toggle('on',S.em);const v=view();kpis(v);disp(v);scatter(v);board(v);scoreT(v);tbl(v);cmp();chatInit()}
+function kpis(v){const a=k=>{const x=v.map(f=>f[k]).filter(n=>n!==null);return x.length?+mean(x).toFixed(1):null};
+$('kpis').innerHTML=[['Funds in view',v.length],['Avg 3Y return',f1(a('ret3'),'%')],['Avg volatility',f1(a('sd'),'%')],['Avg max drawdown',f1(a('mdd'),'%')],['Emerging (<3Y)',v.filter(f=>f.age<3).length]].map(([l,x])=>`<div class="kpi"><b>${x}</b><span>${l}</span></div>`).join('');
+if(!v.length){$('summary').innerHTML='<p>'+(RAW.length?'No funds match these filters.':'No data loaded yet.')+'</p>';$('recs').innerHTML='';return}
+const top=v.slice().sort((a,b)=>b.score-a.score)[0],sh=best(v,'sharpe'),dd=best(v,'mdd'),cons=best(v,'cons'),cs=[...new Set(v.map(f=>f.cat))].map(c=>{const x=v.filter(f=>f.cat===c&&f.ret3!==null);return[c,x.length?mean(x.map(f=>f.ret3)):null]}).filter(x=>x[1]!==null).sort((a,b)=>b[1]-a[1]);
+$('summary').innerHTML=`<p>${v.length} Direct Growth funds are in view. <b>${esc(top.name)}</b> has the highest composite score (${top.score}). ${sh?`Best 3Y Sharpe is ${sh.sharpe} (${esc(sh.name)}). `:''}${dd?`Shallowest 3Y drawdown is ${dd.mdd}% (${esc(dd.name)}). `:''}${cons?`Most consistent versus its category: ${esc(cons.name)}, ahead of the category average in ${cons.cons}% of months. `:''}${cs.length>1?`Highest average 3Y return is in ${cs[0][0]} (${cs[0][1].toFixed(1)}%), lowest in ${cs[cs.length-1][0]} (${cs[cs.length-1][1].toFixed(1)}%).`:''}</p>`;
+const r=[`Start your shortlist with <b>${esc(top.name)}</b>, which leads on the blended score in this view.`],hi=v.filter(f=>f.dcr>105).length,em=v.filter(f=>f.age<3).length,hv=v.filter(f=>f.sd>(f.catSd||1e9)*1.15).length;
+if(hi)r.push(`${hi} fund(s) fell more than their category on down days (downside capture above 105). Check them before adding.`);
+if(hv)r.push(`${hv} fund(s) are at least 15% more volatile than their category average. Size these positions smaller.`);
+if(em)r.push(`${em} emerging fund(s) have under 3 years of history. Treat their scores as early signals and start small.`);
+r.push('Small and mid cap funds swing more than large cap funds. Match the category to how long you can stay invested.','Past returns do not guarantee future results. This is analysis, not investment advice.');$('recs').innerHTML=r.map(x=>`<li>${x}</li>`).join('')}
+function disp(v){const cs=[...new Set(v.map(f=>f.cat))],p=v.filter(f=>f.ret3!==null);if(!p.length){$('disp').innerHTML='<p class="note">No 3-year data in view.</p>';return}
+const lo=Math.min(...p.map(f=>f.ret3)),hi=Math.max(...p.map(f=>f.ret3))+.01,W=340,rh=34,X=v=>90+(v-lo)/(hi-lo)*(W-105);
+$('disp').innerHTML=`<svg viewBox="0 0 ${W} ${cs.length*rh+20}" width="100%" role="img" aria-label="3-year return by category">${cs.map((c,i)=>{const g=p.filter(f=>f.cat===c),y=i*rh+18,md=g.map(f=>f.ret3).sort((a,b)=>a-b)[g.length>>1];return`<text x="0" y="${y+4}" font-size="10" fill="var(--mut)">${esc(c)}</text><line x1="90" x2="${W-15}" y1="${y}" y2="${y}" stroke="var(--line)"/>${g.length?`<line x1="${X(md)}" x2="${X(md)}" y1="${y-9}" y2="${y+9}" stroke="var(--ink)" stroke-width="2"/>`:''}${g.map(f=>`<circle cx="${X(f.ret3).toFixed(1)}" cy="${y}" r="4.5" fill="var(--acc)" fill-opacity=".55" style="cursor:pointer" onclick="openF(${f.id})"><title>${esc(f.name)}: ${f.ret3}%</title></circle>`).join('')}`}).join('')}<text x="90" y="${cs.length*rh+16}" font-size="10" fill="var(--mut)">${lo.toFixed(0)}%</text><text x="${W-30}" y="${cs.length*rh+16}" font-size="10" fill="var(--mut)">${hi.toFixed(0)}%</text></svg>`}
+function scatter(v){const p=v.filter(f=>f.ret3!==null);if(!p.length){$('scatter').innerHTML='<p class="note">No 3-year data in view.</p>';return}
+const xs=p.map(f=>f.sd),ys=p.map(f=>f.ret3),x0=Math.min(...xs),x1=Math.max(...xs)+.01,y0=Math.min(...ys),y1=Math.max(...ys)+.01,W=340,H=220;
+$('scatter').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Return versus volatility"><rect x="30" y="8" width="${W-40}" height="${H-34}" fill="none" stroke="var(--line)"/>${p.map(f=>`<circle cx="${(35+(f.sd-x0)/(x1-x0)*(W-50)).toFixed(1)}" cy="${(H-31-(f.ret3-y0)/(y1-y0)*(H-44)).toFixed(1)}" r="${S.cmp.includes(f.id)?7:4.5}" fill="var(--acc)" fill-opacity=".6" style="cursor:pointer" onclick="openF(${f.id})"><title>${esc(f.name)}: ${f.ret3}% return, ${f.sd}% volatility</title></circle>`).join('')}<text x="2" y="16" font-size="10" fill="var(--mut)">${y1.toFixed(0)}%</text><text x="2" y="${H-28}" font-size="10" fill="var(--mut)">${y0.toFixed(0)}%</text><text x="30" y="${H-8}" font-size="10" fill="var(--mut)">${x0.toFixed(0)}%</text><text x="${W-40}" y="${H-8}" font-size="10" fill="var(--mut)">${x1.toFixed(0)}%</text></svg>`}
+function board(v){const cats=Object.keys(CATS).filter(c=>v.some(f=>f.cat===c));if(!cats.length){$('board').innerHTML='<p class="note">Nothing to rank.</p>';return}
+const cols=[['Best 3Y return','ret3',true,'%'],['Risk-adjusted (Sharpe)','sharpe',true,''],['Shallowest drawdown','mdd',true,'%'],['Lowest downside capture','dcr',false,''],['Consistency (months beating category)','cons',true,'%'],['Best alpha','alpha',true,'%']];
+$('board').innerHTML=`<table><thead><tr><th>Category</th>${cols.map(c=>`<th style="cursor:default">${c[0]}</th>`).join('')}</tr></thead><tbody>${cats.map(c=>{const g=v.filter(f=>f.cat===c);return`<tr><td><b>${esc(c)}</b></td>${cols.map(([l,k,hi,u])=>{const b=best(g,k,hi);return b?`<td><a href="#" onclick="openF(${b.id});return false" style="color:var(--acc)">${esc(b.name)}</a> <span class="note">${b[k]}${u}</span></td>`:'<td>-</td>'}).join('')}</tr>`}).join('')}</tbody></table>`}
+function scoreT(v){const s=v.slice().sort((a,b)=>b.score-a.score).slice(0,10);$('score').innerHTML=s.length?`<table><thead><tr><th>Fund</th><th>Category</th><th class="n">Score</th><th></th></tr></thead><tbody>${s.map(f=>`<tr class="c" tabindex="0" onclick="openF(${f.id})"><td>${esc(f.name)}</td><td>${esc(f.cat)}</td><td class="n"><b>${f.score}</b></td><td>${badge(f)}</td></tr>`).join('')}</tbody></table>`:'<p class="note">Nothing to score.</p>'}
+const COLS=[['name','Fund'],['cat','Category'],['age','Age (y)',1,'Years since the first NAV'],['ret1','1Y %',1],['ret3','3Y %',1,'Annualised 3-year return'],['ret5','5Y %',1],['sd','Volatility %',1,'Annualised standard deviation, last 3 years'],['sharpe','Sharpe',1,'Return above the risk-free rate per unit of risk. Higher is better'],['mdd','Max DD %',1,'Worst peak-to-trough fall in the last 3 years'],['dcr','Down capture',1,'Below 100 means the fund fell less than its category on down days'],['cons','Consistency %',1,'Share of the last 36 months the fund beat the category average'],['score','Score',1,'Composite score, 0 to 100']];
+function tbl(v){const[k,d]=S.sort,s=v.slice().sort((a,b)=>{const x=a[k],y=b[k];if(x===null||x===undefined)return 1;if(y===null||y===undefined)return -1;return(x>y?1:x<y?-1:0)*d}).slice(0,100);
+$('tbl').innerHTML=s.length?`<table><thead><tr>${COLS.map(c=>`<th class="${c[2]?'n':''}" title="${esc(c[3]||'Sort')}" onclick="sortBy('${c[0]}')">${c[1]}${S.sort[0]===c[0]?(d>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>${s.map(f=>`<tr class="c" tabindex="0" onclick="openF(${f.id})" onkeydown="if(event.key==='Enter')openF(${f.id})">${COLS.map(c=>c[2]?`<td class="n">${f1(f[c[0]])}</td>`:`<td>${esc(f[c[0]])}${c[0]==='name'?' '+badge(f):''}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p class="note">No funds to show.</p>';
+$('cnt').textContent=`${v.length} funds. Click a row for details.`}
+function sortBy(k){S.sort=S.sort[0]===k?[k,-S.sort[1]]:[k,k==='name'||k==='cat'?1:-1];render()}
+function plain(f){const g=RAW.filter(x=>x.cat===f.cat);if(f.ret3===null)return`Younger than 3 years, so there is no 3-year return yet. 1Y return is ${f1(f.ret1,'%')}. Volatility is ${f.sd}% against a category average of ${f.catSd}%.`;
+const p=Math.round(100*pr(g.map(x=>x.ret3),f.ret3));return`Ahead of about ${p}% of ${esc(f.cat)} peers loaded here on 3Y return (${f.ret3}% vs ${f.catRet3}% average), with volatility ${f.sd<f.catSd?Math.round((1-f.sd/f.catSd)*100)+'% lower':Math.round((f.sd/f.catSd-1)*100)+'% higher'} than the category average.`}
+function openF(id){const f=RAW.find(x=>x.id===id);S.sel=f;const g=RAW.filter(x=>x.cat===f.cat),pc=(k,hi)=>Math.round(100*pr(g.map(x=>x[k]),f[k],hi));
+const m=(l,x)=>`<div class="row"><span>${l}</span><span>${x}</span></div>`,peer=(l,k,hi)=>f[k]===null?'':`<p class="note" style="margin:6px 0 2px">${l}: better than ${pc(k,hi)}% of peers</p><div class="meter"><i style="width:${pc(k,hi)}%"></i></div>`;
+$('drawer').innerHTML=`<div class="bar" style="justify-content:space-between"><h2 style="margin:0">${esc(f.name)}</h2><button onclick="closeF()" aria-label="Close">Close</button></div>
+<p>${plain(f)}</p><p class="note">${esc(f.amc)} · ${esc(f.cat)} ${badge(f)}</p>${m('Latest NAV',f.nav.toFixed(2)+' ('+new Date(f.navDate).toLocaleDateString('en-IN',{timeZone:'UTC'})+')')}${m('Age',f.age+' yrs')}${m('1Y / 3Y / 5Y return',f1(f.ret1)+' / '+f1(f.ret3)+' / '+f1(f.ret5)+' %')}${m('Volatility',f.sd+'%')}${m('Sharpe / Sortino',f1(f.sharpe)+' / '+f1(f.sortino))}${m('Max drawdown',f.mdd+'%')}${m('Alpha / Beta vs category',f1(f.alpha)+' / '+f1(f.beta))}${m('Downside capture',f1(f.dcr))}${m('Months beating category',f1(f.cons,'%'))}${m('Composite score',f.score)}
+<h2 style="margin-top:14px">Peer position</h2>${peer('3Y return','ret3',true)}${peer('Sharpe','sharpe',true)}${peer('Max drawdown','mdd',true)}${peer('Downside capture','dcr',false)}
+${f.age<3?'<p class="note" style="margin-top:12px">Emerging fund: expense ratio, active share, concentration and manager history are not in NAV data. Check the fund factsheet before investing.</p>':''}
+<div class="bar" style="margin-top:14px"><button class="p" onclick="addCmp(${f.id})">${S.cmp.includes(f.id)?'Remove from comparison':'Add to comparison'}</button></div>`;$('drawer').classList.add('open')}
+function closeF(){$('drawer').classList.remove('open')}
+function addCmp(id){const i=S.cmp.indexOf(id);if(i>=0)S.cmp.splice(i,1);else if(S.cmp.length<4)S.cmp.push(id);else alert('You can compare up to 4 funds. Remove one first.');closeF();cmp();scatter(view())}
+function corr(a,b){const x=[],y=[];a.dr.forEach((r,t)=>{if(b.dr.has(t)){x.push(r);y.push(b.dr.get(t))}});if(x.length<100)return null;const mx=mean(x),my=mean(y);let c=0,vx=0,vy=0;x.forEach((v,i)=>{c+=(v-mx)*(y[i]-my);vx+=(v-mx)**2;vy+=(y[i]-my)**2});return Math.round(100*c/Math.sqrt(vx*vy))}
+function cmp(){const fs=S.cmp.map(id=>RAW.find(f=>f.id===id)).filter(Boolean);
+$('tray').innerHTML=fs.length?fs.map(f=>`<button class="chip on" onclick="addCmp(${f.id})" title="Remove">${esc(f.name)} ✕</button>`).join('')+'<button onclick="S.cmp=[];cmp();scatter(view())">Clear</button>':'<span class="note">Open a fund and choose Add to comparison. Up to 4.</span>';
+if(fs.length<2){$('cmp').innerHTML='';return}
+const cl=(x,a,b)=>Math.max(0,Math.min(1,(x-a)/(b-a))),ax=[['Alpha',f=>cl(f.alpha??0,-4,6)],['Low beta',f=>cl(1.3-(f.beta??1),0,.6)],['Low volatility',f=>cl(f.catSd/f.sd,.6,1.4)],['Sharpe',f=>cl(f.sharpe??0,0,1.6)],['Downside protection',f=>cl(120-(f.dcr??100),0,40)]],n=ax.length,R=90,cx=120,cy=115,cols=['#0e6b62','#b45309','#5b4bb7','#b42318'];
+const pt=(i,r)=>[cx+R*r*Math.sin(2*Math.PI*i/n),cy-R*r*Math.cos(2*Math.PI*i/n)];
+const svg=`<svg viewBox="0 0 240 230" width="100%" style="max-width:340px" role="img" aria-label="Radar comparison">${[.33,.66,1].map(r=>`<polygon points="${ax.map((_,i)=>pt(i,r).join(',')).join(' ')}" fill="none" stroke="var(--line)"/>`).join('')}${ax.map((a,i)=>{const[x,y]=pt(i,1.2);return`<text x="${x}" y="${y}" font-size="9" text-anchor="middle" fill="var(--mut)">${a[0]}</text>`}).join('')}${fs.map((f,j)=>`<polygon points="${ax.map((a,i)=>pt(i,a[1](f)).join(',')).join(' ')}" fill="${cols[j]}" fill-opacity=".15" stroke="${cols[j]}" stroke-width="2"/>`).join('')}</svg>`;
+const pairs=fs.flatMap((a,i)=>fs.slice(i+1).map(b=>`${esc(a.name)} / ${esc(b.name)}: ${f1(corr(a,b),'%')}`));
+$('cmp').innerHTML=`<div>${svg}<div class="bar">${fs.map((f,j)=>`<span class="note"><b style="color:${cols[j]}">■</b> ${esc(f.name)}</span>`).join('')}</div></div><div class="scroll"><table><thead><tr><th style="cursor:default"></th>${fs.map(f=>`<th style="cursor:default">${esc(f.amc.replace(/ mutual fund/i,''))}</th>`).join('')}</tr></thead><tbody>${[['3Y return %',f=>f1(f.ret3)],['Alpha vs category',f=>f1(f.alpha)],['Beta vs category',f=>f1(f.beta)],['Volatility vs category avg',f=>f.sd+'% vs '+f.catSd+'%'],['Sharpe',f=>f1(f.sharpe)],['Max drawdown %',f=>f.mdd],['Downside capture',f=>f1(f.dcr)]].map(([l,fn])=>`<tr><td>${l}</td>${fs.map(f=>`<td>${fn(f)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+<p class="note">Daily return correlation (a guide to how alike the funds behave, not holdings overlap): ${pairs.join('; ')}. Higher means less diversification.</p></div>`}
+function say(t,u){const d=document.createElement('div');d.className='m'+(u?' u':'');d.innerHTML=t;$('chatlog').appendChild(d);$('chatlog').scrollTop=1e9}
+function chatInit(){if(!$('chatlog').children.length)say('Ask about the loaded funds, for example "best Sharpe in Mid Cap" or "lowest drawdown".')}
+function answer(q){if(!RAW.length)return'No data is loaded yet. Press Refresh data.';const t=q.toLowerCase(),c=Object.keys(CATS).sort((a,b)=>b.length-a.length).find(x=>t.includes(x.toLowerCase())||t.includes(x.toLowerCase().replace(' cap',''))&&x==='Large Cap'&&!/mid/.test(t)),g=RAW.filter(f=>!c||f.cat===c),w=c?` in ${c}`:'';
+const one=(b,l)=>b?`${l}${w}: <b>${esc(b.name)}</b>.`:'No match found.';
+if(/sharpe|risk.adj/.test(t)){const b=best(g,'sharpe');return one(b,`Highest Sharpe (${b&&b.sharpe})`)}
+if(/drawdown|fall|safe|downside/.test(t)){const b=best(g,'mdd');return one(b,`Shallowest drawdown (${b&&b.mdd}%)`)}
+if(/consisten/.test(t)){const b=best(g,'cons');return one(b,`Most consistent (${b&&b.cons}% of months)`)}
+if(/new|emerging|young/.test(t)){const x=g.filter(f=>f.age<3);return x.length?`${x.length} emerging funds${w}: `+x.slice(0,5).map(f=>esc(f.name)).join('; '):'No emerging funds loaded.'}
+if(/return|perform/.test(t)){const b=best(g,'ret3');return one(b,`Best 3Y return (${b&&b.ret3}%)`)}
+if(/best|top|score|recommend/.test(t))return one(g.slice().sort((a,b)=>b.score-a.score)[0],'Top composite score');
+const hit=RAW.filter(f=>t.split(/\s+/).some(x=>x.length>3&&(f.name+f.amc).toLowerCase().includes(x))).slice(0,3);
+return hit.length?hit.map(f=>`<b>${esc(f.name)}</b>: 3Y ${f1(f.ret3,'%')}, Sharpe ${f1(f.sharpe)}, score ${f.score}.`).join('<br>'):'I could not find that. Try a fund or AMC name, a category, or words like Sharpe, drawdown, consistency, emerging.'}
+function ask(){const q=$('ask').value.trim();if(!q)return;say(esc(q),1);try{say(answer(q))}catch(e){say('Something went wrong reading the data.')}$('ask').value=''}
+$('send').onclick=ask;$('ask').onkeydown=e=>{if(e.key==='Enter')ask()};$('refresh').onclick=load;
+$('cat').onchange=e=>{S.cat=e.target.value;render()};$('q').oninput=e=>{S.q=e.target.value;render()};
+$('fTop').onclick=()=>{S.top=!S.top;render()};$('fEm').onclick=()=>{S.em=!S.em;render()};
+$('reset').onclick=()=>{S.cat='All';S.q='';S.top=false;S.em=false;$('cat').value='All';$('q').value='';render()};
+function setTheme(t){document.documentElement.dataset.theme=t;$('theme').textContent=t==='dark'?'Light mode':'Dark mode'}
+$('theme').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+if(matchMedia('(prefers-color-scheme:dark)').matches)setTheme('dark');
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeF()});
+load();
+</script></body></html>
