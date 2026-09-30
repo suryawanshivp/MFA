@@ -46,9 +46,9 @@ input[type=text]{width:100%}
 <input type="text" id="q" placeholder="Search fund or AMC" aria-label="Search" style="max-width:200px">
 <button class="chip" id="fTop" title="Only funds in the top 25% of composite score within their category">Top quartile</button>
 <button class="chip" id="fEm" title="Funds younger than 3 years, which have no Morningstar-style 3Y track record yet">Emerging (&lt;3Y)</button>
-<label class="note" title="How many Direct Growth funds to load per category. Takes effect on Refresh">Funds per category <select id="n"><option>4</option><option selected>6</option><option>10</option></select></label>
+<label class="note" title="How many Direct Growth funds to load per category. Takes effect on Refresh">Funds per category <select id="n"><option>10</option><option>25</option><option selected>All</option></select></label>
 <button id="reset">Reset filters</button></div>
-<p class="note">Source: MFapi.in NAV history (from AMFI data). Every metric is calculated in this page from NAV. Expense ratio, Morningstar ratings, pillars and holdings are not in NAV data, so they are not shown. Risk-free rate assumed at 6.5%. "Category average" is the average of the loaded funds in the same category.</p></section>
+<p class="note">Source: MFapi.in NAV history (from AMFI data), last 5 years per fund, so age shows at most about 5. Every metric is calculated in this page from NAV. Expense ratio, Morningstar ratings, pillars and holdings are not in NAV data, so they are not shown. Risk-free rate assumed at 6.5%. "Category average" is the average of the loaded funds in the same category.</p></section>
 <section class="card"><h2>Executive summary</h2><div class="kpis" id="kpis"></div><div id="summary"></div></section>
 <section class="card"><h2>Recommendations</h2><ul id="recs"></ul></section>
 <div class="grid">
@@ -95,14 +95,25 @@ f.catSd=+mean(g.map(x=>x.sd)).toFixed(1);const r3=g.map(x=>x.ret3).filter(x=>x!=
 const pr=(a,v,hi=true)=>{const x=a.filter(n=>n!==null);if(v===null||x.length<2)return .5;const b=x.filter(n=>hi?n<v:n>v).length,e=x.filter(n=>n===v).length;return(b+e/2)/x.length};
 window.pr=pr;Object.values(by).forEach(g=>{const c=k=>g.map(f=>f[k]);g.forEach(f=>{f.score=Math.round(100*(.3*pr(c('ret3'),f.ret3)+.25*pr(c('sharpe'),f.sharpe)+.2*(pr(c('mdd'),f.mdd)+pr(c('dcr'),f.dcr,false))/2+.15*pr(c('cons'),f.cons)+.1*pr(c('alpha'),f.alpha)))});
 const s=g.map(f=>f.score).sort((a,b)=>a-b),q=s[Math.floor(.75*(s.length-1))];g.forEach(f=>f.topQ=f.score>=q&&g.length>=4)})}
-async function load(){const b=$('refresh');b.disabled=true;b.textContent='Loading...';status('Fetching NAV history from MFapi.in...');prog(0,1);RAW=[];S.sel=null;S.cmp=[];closeF();
-let sf=0,er=0,stale=0;const cands=[],n=+$('n').value;
-await Promise.all(Object.entries(CATS).map(async([c,d])=>{try{const r=await J(API+'/search?q='+encodeURIComponent(d.q));r.filter(x=>d.re.test(x.schemeName)&&!(d.ex&&d.ex.test(x.schemeName))&&/direct/i.test(x.schemeName)&&/growth/i.test(x.schemeName)&&!BAD.test(x.schemeName)).sort((a,b)=>rank(a.schemeName)-rank(b.schemeName)||a.schemeName.localeCompare(b.schemeName)).slice(0,n).forEach(x=>cands.push({...x,cat:c}))}catch(e){sf++}}));
-let i=0,done=0;await Promise.all(Array.from({length:6},async()=>{while(i<cands.length){const c=cands[i++];try{const f=build(await J(API+'/'+c.schemeCode),c);if(f&&f.stale)stale++;else if(f)RAW.push(f)}catch(e){er++}prog(++done,cands.length)}}));
+const CATMAP=[[/large\s*(&|and)\s*mid/i,'Large & Mid Cap'],[/large[\s-]*cap/i,'Large Cap'],[/mid[\s-]*cap/i,'Mid Cap'],[/small[\s-]*cap/i,'Small Cap'],[/flexi[\s-]*cap/i,'Flexi Cap'],[/multi[\s-]*cap/i,'Multi Cap']];
+const PRE=/cap|blue\s*chip|top[\s-]*100|emerging|flexi|opportunit|frontier|equity|discovery/i;
+const catOf=c=>{if(!c||!/^equity/i.test(c))return null;const m=CATMAP.find(x=>x[0].test(c));return m?m[1]:null};
+async function pool(items,fn,k=8){let i=0;await Promise.all(Array.from({length:k},async()=>{while(i<items.length){await fn(items[i++])}}))}
+async function load(){const b=$('refresh');b.disabled=true;b.textContent='Loading...';prog(0,1);RAW=[];S.sel=null;S.cmp=[];closeF();
+let sf=0,er=0,stale=0,listErr=0,sch=[];const nv=$('n').value,n=nv==='All'?Infinity:+nv;
+try{status('Step 1 of 3: listing all schemes on MFapi.in...');const p0=await J(API+'?limit=2000&offset=0').catch(()=>J(API+'?limit=100&offset=0'));sch=p0.slice();const step=p0.length;
+if(step){let off=step,more=step>=100;while(more){const offs=[0,1,2,3,4,5].map(k=>off+k*step);const pg=await Promise.all(offs.map(o=>J(`${API}?limit=${step}&offset=${o}`).catch(()=>null)));
+for(const x of pg){if(x===null){listErr++;more=false}else{sch.push(...x);if(x.length<step)more=false}}off+=6*step;status(`Step 1 of 3: listed ${sch.length} schemes...`)}}}catch(e){sf++}
+const seen=new Set(),cand=sch.filter(x=>x&&x.schemeName&&/direct/i.test(x.schemeName)&&/growth/i.test(x.schemeName)&&!BAD.test(x.schemeName)&&PRE.test(x.schemeName)&&!seen.has(x.schemeCode)&&seen.add(x.schemeCode));
+let ok=[],d1=0;await pool(cand,async c=>{try{const j=await J(`${API}/${c.schemeCode}/latest`),cat=catOf(j.meta&&j.meta.scheme_category),dt=j.data&&j.data[0]&&pd(j.data[0].date);
+if(!cat)return;if(!dt||Date.now()-dt>25*DAY){stale++;return}ok.push({...c,cat})}catch(e){er++}d1++;if(d1%10==0||d1==cand.length){prog(d1,cand.length);status(`Step 2 of 3: checking category and freshness ${d1}/${cand.length}...`)}});
+const by={};ok.forEach(c=>(by[c.cat]=by[c.cat]||[]).push(c));ok=[];Object.values(by).forEach(g=>{g.sort((a,b)=>rank(a.schemeName)-rank(b.schemeName)||a.schemeName.localeCompare(b.schemeName));ok.push(...g.slice(0,n))});
+const sd=new Date(Date.now()-5.1*YR).toISOString().slice(0,10);let d2=0;
+await pool(ok,async c=>{try{let j;try{j=await J(`${API}/${c.schemeCode}?startDate=${sd}`)}catch(e){j=await J(`${API}/${c.schemeCode}`)}const f=build(j,c);if(f&&f.stale)stale++;else if(f)RAW.push(f)}catch(e){er++}d2++;if(d2%5==0||d2==ok.length){prog(d2,ok.length);status(`Step 3 of 3: downloading NAV history ${d2}/${ok.length}...`)}});
 RAW.forEach((f,k)=>f.id=k);b.disabled=false;b.textContent='Refresh data';prog(0,1);
-if(!RAW.length){status(`Could not load fund data (${sf} search failures, ${er} fetch errors). The browser may be blocking requests to api.mfapi.in (cross-site policy, or this preview page's network limits). Run the file locally or host it on Streamlit / GitHub Pages, then press Refresh.`,1);$('stamp').textContent='No data';init();return}
-stage2();const lt=Math.max(...RAW.map(f=>f.navDate));$('stamp').textContent=`Latest NAV date ${new Date(lt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'})} · fetched ${new Date().toLocaleString('en-IN')}`;
-status(er||sf||stale?`Loaded ${RAW.length} funds. Skipped: ${er} fetch errors, ${sf} failed searches, ${stale} funds with no NAV in 25+ days.`:'');init()}
+if(!RAW.length){status(`Could not load fund data (${sf} listing failures, ${er} fetch errors, ${sch.length} schemes listed). The browser may be blocking requests to api.mfapi.in (cross-site policy, or this preview page's network limits). Run the file locally or host it on Streamlit / GitHub Pages, then press Refresh.`,1);$('stamp').textContent='No data';init();return}
+stage2();const lt=Math.max(...RAW.map(f=>f.navDate)),cn=Object.keys(CATS).map(c=>`${c} ${RAW.filter(f=>f.cat===c).length}`).join(', ');$('stamp').textContent=`Latest NAV date ${new Date(lt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'})} · fetched ${new Date().toLocaleString('en-IN')}`;
+status(`Loaded ${RAW.length} funds from ${sch.length} listed schemes (${cn}). Skipped: ${stale} with no NAV in 25+ days, ${er} fetch errors${listErr?`, ${listErr} list pages failed (list may be incomplete)`:''}.`);init()}
 function init(){$('cat').innerHTML=['All',...Object.keys(CATS)].map(c=>`<option>${esc(c)}</option>`).join('');S.cat='All';render()}
 function view(){return RAW.filter(f=>(S.cat==='All'||f.cat===S.cat)&&(!S.top||f.topQ)&&(!S.em||f.age<3)&&(!S.q||(f.name+f.amc).toLowerCase().includes(S.q.toLowerCase())))}
 const badge=f=>f.age<3?'<span class="badge b-e" title="Under 3 years old: 3Y and 5Y figures are not available yet">Emerging</span>':'';
